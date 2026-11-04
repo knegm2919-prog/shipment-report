@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تقرير مصاريف الشحنة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* Layout: editor panel beside a printed-style shipment cost sheet; stacks on phones. */
+  :root {
+    --bg: #eef2f5;
+    --surface: #ffffff;
+    --ink: #17212b;
+    --muted: #5b6b7d;
+    --line: #dce3e9;
+    --field: #cbd5df;
+    --head: #f1f3f5;
+    --soft: #f6f8fa;
+    --accent: #0d6efd;
+    --accent-ink: #ffffff;
+    --accent-soft: #e7f2ff;
+    --accent-line: #b9dfff;
+    --ref-bg: #fff3cd;
+    --ref-line: #ecd48a;
+    --ref-ink: #6b5200;
+    --danger: #b42318;
+    --danger-line: #e8b4b4;
+    --s1: #0d6efd;
+    --s2: #0f9d8a;
+    --s3: #d98e04;
+    --s4: #8b5cf6;
+    --font: 'Noto Sans Arabic', Tahoma, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e151d; --surface: #16202b; --ink: #e8edf3; --muted: #9aa8b8; --line: #28364a;
+      --field: #33445a; --head: #1d2a38; --soft: #1a2633; --accent: #5aa2ff; --accent-ink: #08121f;
+      --accent-soft: #14304f; --accent-line: #265389; --ref-bg: #3a3114; --ref-line: #6b5a1f; --ref-ink: #f1d98a;
+      --danger: #ff8a80; --danger-line: #6b3535; --s1: #5aa2ff; --s2: #3dd1bb; --s3: #f0b73a; --s4: #b497ff;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e151d; --surface: #16202b; --ink: #e8edf3; --muted: #9aa8b8; --line: #28364a;
+    --field: #33445a; --head: #1d2a38; --soft: #1a2633; --accent: #5aa2ff; --accent-ink: #08121f;
+    --accent-soft: #14304f; --accent-line: #265389; --ref-bg: #3a3114; --ref-line: #6b5a1f; --ref-ink: #f1d98a;
+    --danger: #ff8a80; --danger-line: #6b3535; --s1: #5aa2ff; --s2: #3dd1bb; --s3: #f0b73a; --s4: #b497ff;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.6;
+    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 24px 48px;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :is(button, input, select, textarea):focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .workspace { max-width: 1400px; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .topbar h1 { margin: 0; font-size: 26px; line-height: 1.3; text-wrap: balance; }
+  .topbar p { margin: 4px 0 0; color: var(--muted); }
+
+  .layout { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .editor, .report-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  .editor { padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .editor h2 { margin: 0; font-size: 20px; }
+  .editor h3 { margin: 0; font-size: 16px; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 10px; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .wide { grid-column: 1 / -1; }
+  .field label { font-size: 12px; font-weight: 700; color: var(--muted); }
+  .field :is(input, select, textarea) {
+    width: 100%; min-width: 0; border: 1px solid var(--field); border-radius: 6px; padding: 8px 10px; background: var(--surface);
+  }
+  .field textarea { min-height: 72px; resize: vertical; }
+  .exp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  #expense-editors { display: flex; flex-direction: column; gap: 10px; }
+  .expense-editor { padding: 12px; border: 1px solid var(--line); border-radius: 8px; display: flex; flex-direction: column; gap: 10px; background: var(--soft); }
+
+  .btn { cursor: pointer; border-radius: 6px; padding: 8px 14px; font-weight: 700; border: 1px solid var(--accent); background: transparent; color: var(--accent); transition: filter .15s; }
+  .btn:hover { filter: brightness(.92); }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-danger { border-color: var(--danger-line); color: var(--danger); align-self: flex-start; padding: 5px 12px; }
+
+  .report-wrap { min-width: 0; }
+  .report { padding: 28px; display: flex; flex-direction: column; gap: 22px; }
+  .report-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 14px; border-bottom: 2px solid var(--accent); padding-bottom: 16px; }
+  .eyebrow { margin: 0; color: var(--muted); font-weight: 700; letter-spacing: .02em; }
+  .report-title { margin: 0; font-size: 22px; }
+  .reference { background: var(--ref-bg); border: 1px solid var(--ref-line); color: var(--ref-ink); border-radius: 4px; padding: 6px 12px; }
+  .reference strong { unicode-bidi: plaintext; }
+
+  .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+  .detail { border-bottom: 1px solid var(--line); padding-bottom: 6px; min-width: 0; }
+  .detail b { display: block; font-size: 12px; color: var(--muted); font-weight: 500; }
+  .detail span { display: block; overflow-wrap: anywhere; }
+
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .card { padding: 12px 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+  .card.primary { background: var(--accent-soft); border-color: var(--accent-line); }
+  .card span { display: block; font-size: 12px; color: var(--muted); }
+  .card.primary span { color: var(--accent); font-weight: 700; }
+  .card strong { display: block; margin-top: 4px; font-size: 17px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+  .split h3 { margin: 0 0 8px; font-size: 15px; }
+  .bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--head); gap: 2px; }
+  .bar i { display: block; min-width: 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 10px 0 0; padding: 0; list-style: none; font-size: 13px; }
+  .legend li { display: flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .legend b { font-variant-numeric: tabular-nums; }
+
+  .stage { break-inside: avoid; }
+  .stage-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+  .stage-heading h3 { margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .stage-heading h3 i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .stage-heading strong { font-variant-numeric: tabular-nums; }
+  .table-scroll { overflow-x: auto; }
+  .stage-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .stage-table th { background: var(--head); font-weight: 700; }
+  .stage-table th, .stage-table td { border: 1px solid var(--line); padding: 7px 8px; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .stage-table th:first-child { width: 38%; }
+  .stage-table td:not(:first-child), .stage-table th:not(:first-child) { text-align: left; }
+  .empty-row td { color: var(--muted); text-align: center !important; }
+
+  .notes { white-space: pre-line; overflow-wrap: anywhere; border-right: 4px solid var(--accent); padding: 10px 14px; background: var(--soft); }
+  .notes b { display: block; }
+  .sample { margin: 0; font-size: 12px; color: var(--muted); }
+  #copy-fallback { width: 100%; min-height: 120px; border: 1px solid var(--field); border-radius: 6px; padding: 8px; background: var(--surface); }
+
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .editor { order: 2; } .report-wrap { order: 1; } }
+  @media (max-width: 620px) {
+    .report { padding: 18px 14px; }
+    .detail-grid { grid-template-columns: 1fr; }
+    .stage-table { font-size: 12px; }
+    .stage-table th, .stage-table td { padding: 6px 5px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+</style>
+
+<style>
+  #diag{max-width:1400px;margin:20px auto 0;border:1px dashed var(--field);border-radius:10px;padding:12px 14px;background:var(--surface)}
+  #diag summary{cursor:pointer;font-weight:700}
+  #diag pre{margin:8px 0 0;max-height:260px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;direction:ltr;text-align:left;font-size:12px;background:var(--soft);padding:8px;border-radius:6px}
+  #diag p{margin:8px 0 0;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="workspace" dir="rtl" lang="ar">
+  <header class="topbar">
+    <div>
+      <h1>تقرير مصاريف الشحنة</h1>
+      <p>من الشراء إلى التسليم: عدّل البيانات وتابع التكلفة فورًا</p>
+    </div>
+    <button id="copy-button" type="button" class="btn btn-primary">نسخ الملخص</button>
+  </header>
+  <textarea id="copy-fallback" readonly hidden aria-label="ملخص التقرير للنسخ"></textarea>
+
+  <main class="layout">
+    <aside class="editor" aria-label="تحرير بيانات الشحنة ومصروفاتها">
+      <h2>بيانات الشحنة</h2>
+      <div class="fields">
+        <div class="field"><label for="shipment-code">رقم الشحنة</label><input id="shipment-code" value="SH-2026-0142" type="text" dir="auto"></div>
+        <div class="field"><label for="purchase-date">تاريخ الشراء</label><input id="purchase-date" value="2026-11-03" type="date"></div>
+        <div class="field wide"><label for="supplier">المورد</label><input id="supplier" value="شركة النور للتوريدات" type="text"></div>
+        <div class="field wide"><label for="goods">وصف البضاعة</label><input id="goods" value="أجهزة مكتبية ومستلزمات تغليف" type="text"></div>
+        <div class="field"><label for="origin">بلد المنشأ</label><input id="origin" value="الصين" type="text"></div>
+        <div class="field"><label for="currency">رمز العملة</label><input id="currency" value="ج.م" type="text" maxlength="12"></div>
+        <div class="field wide"><label for="units">عدد الوحدات المستلمة</label><input id="units" value="500" type="number" min="0" step="1" inputmode="numeric"></div>
+        <div class="field wide"><label for="notes">ملاحظات التقرير</label><textarea id="notes">تقديرات المصروفات قابلة للتعديل حسب المستندات النهائية.</textarea></div>
+      </div>
+      <div class="exp-head">
+        <h3>بنود المصروفات</h3>
+        <button id="add-expense" type="button" class="btn">+ إضافة مصروف</button>
+      </div>
+      <div id="expense-editors"></div>
+    </aside>
+
+    <section class="report-wrap" aria-label="معاينة تقرير مصاريف الشحنة">
+      <div class="report">
+        <div class="report-head">
+          <div>
+            <p class="eyebrow">متابعة تكاليف الاستيراد</p>
+            <h2 class="report-title">تقرير مصاريف الشحنة</h2>
+          </div>
+          <div class="reference"><span>رقم الشحنة:</span> <strong id="preview-code"></strong></div>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail"><b>المورد</b><span id="preview-supplier"></span></div>
+          <div class="detail"><b>تاريخ الشراء</b><span id="preview-date"></span></div>
+          <div class="detail"><b>البضاعة</b><span id="preview-goods"></span></div>
+          <div class="detail"><b>بلد المنشأ</b><span id="preview-origin"></span></div>
+        </div>
+
+        <div class="summary" aria-label="ملخص المصاريف">
+          <div class="card primary"><span>إجمالي مصاريف الشحنة</span><strong id="overall-total"></strong></div>
+          <div class="card"><span>الشراء</span><strong id="purchase-total"></strong></div>
+          <div class="card"><span>النقل</span><strong id="transport-total"></strong></div>
+          <div class="card"><span>التخليص الجمركي</span><strong id="customs-total"></strong></div>
+          <div class="card"><span>الخدمات</span><strong id="services-total"></strong></div>
+        </div>
+
+        <div class="summary" aria-label="تكلفة الوحدة">
+          <div class="card"><span>تكلفة الوحدة من البضاعة</span><strong id="unit-goods"></strong></div>
+          <div class="card"><span>مصاريف إضافية لكل وحدة</span><strong id="unit-extra"></strong></div>
+          <div class="card primary"><span>تكلفة الوحدة بعد المصاريف</span><strong id="unit-landed"></strong></div>
+          <div class="card"><span>المصاريف الإضافية من قيمة البضاعة</span><strong id="extra-pct"></strong></div>
+        </div>
+
+        <div class="split">
+          <h3>توزيع التكلفة على المراحل</h3>
+          <div class="bar" id="share-bar" role="img" aria-label="نسبة كل مرحلة من إجمالي التكلفة"></div>
+          <ul class="legend" id="share-legend"></ul>
+        </div>
+
+        <section class="stage" aria-labelledby="purchase-heading">
+          <div class="stage-heading"><h3 id="purchase-heading"><i style="background:var(--s1)"></i>01 / الشراء</h3><strong id="purchase-stage-total"></strong></div>
+          <div class="table-scroll"><table class="stage-table"><thead><tr><th>البيان</th><th>الكمية</th><th>تكلفة الوحدة</th><th>الإجمالي</th></tr></thead><tbody id="purchase-rows"></tbody></table></div>
+        </section>
+        <section class="stage" aria-labelledby="transport-heading">
+          <div class="stage-heading"><h3 id="transport-heading"><i style="background:var(--s2)"></i>02 / النقل</h3><strong id="transport-stage-total"></strong></div>
+          <div class="table-scroll"><table class="stage-table"><thead><tr><th>البيان</th><th>الكمية</th><th>تكلفة الوحدة</th><th>الإجمالي</th></tr></thead><tbody id="transport-rows"></tbody></table></div>
+        </section>
+        <section class="stage" aria-labelledby="customs-heading">
+          <div class="stage-heading"><h3 id="customs-heading"><i style="background:var(--s3)"></i>03 / التخليص الجمركي</h3><strong id="customs-stage-total"></strong></div>
+          <div class="table-scroll"><table class="stage-table"><thead><tr><th>البيان</th><th>الكمية</th><th>تكلفة الوحدة</th><th>الإجمالي</th></tr></thead><tbody id="customs-rows"></tbody></table></div>
+        </section>
+        <section class="stage" aria-labelledby="services-heading">
+          <div class="stage-heading"><h3 id="services-heading"><i style="background:var(--s4)"></i>04 / الخدمات</h3><strong id="services-stage-total"></strong></div>
+          <div class="table-scroll"><table class="stage-table"><thead><tr><th>البيان</th><th>الكمية</th><th>تكلفة الوحدة</th><th>الإجمالي</th></tr></thead><tbody id="services-rows"></tbody></table></div>
+        </section>
+
+        <div id="notes-block" class="notes"><b>ملاحظات</b><div id="preview-notes"></div></div>
+        <p class="sample">الأرقام الظاهرة أمثلة تجريبية. استبدلها ببيانات فواتيرك الفعلية من لوحة التحرير.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  const stages = ['purchase', 'transport', 'customs', 'services'];
+  const stageNames = { purchase: 'الشراء', transport: 'النقل', customs: 'التخليص الجمركي', services: 'الخدمات' };
+  const stageColors = { purchase: 'var(--s1)', transport: 'var(--s2)', customs: 'var(--s3)', services: 'var(--s4)' };
+  const fieldIds = ['shipment-code', 'purchase-date', 'supplier', 'goods', 'origin', 'currency', 'units', 'notes'];
+  const STORE = 'shipment-expense-report-v1';
+
+  let expenses = [
+    { id: 1, name: 'قيمة البضاعة', stage: 'purchase', quantity: 1, unit: 25000 },
+    { id: 2, name: 'الشحن الدولي', stage: 'transport', quantity: 1, unit: 4200 },
+    { id: 3, name: 'رسوم التخليص', stage: 'customs', quantity: 1, unit: 1800 },
+    { id: 4, name: 'فحص ومناولة', stage: 'services', quantity: 1, unit: 650 }
+  ];
+  let nextId = 5;
+
+  const el = id => document.getElementById(id);
+  const num = new Intl.NumberFormat('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const qtyFmt = new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 2 });
+  const pctFmt = new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 1 });
+  const safe = v => Math.max(0, Number(v) || 0);
+  const cur = () => el('currency').value.trim() || 'ج.م';
+  const money = v => `${num.format(v)} ${cur()}`;
+
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (!s) return;
+      fieldIds.forEach(id => { if (typeof s.fields?.[id] === 'string') el(id).value = s.fields[id]; });
+      if (Array.isArray(s.expenses)) { expenses = s.expenses; nextId = s.nextId || (Math.max(0, ...expenses.map(e => e.id)) + 1); }
+    } catch (e) { /* storage unavailable */ }
+  }
+  function save() {
+    try {
+      const fields = Object.fromEntries(fieldIds.map(id => [id, el(id).value]));
+      localStorage.setItem(STORE, JSON.stringify({ fields, expenses, nextId }));
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  function makeEditor(item) {
+    const card = document.createElement('div');
+    card.className = 'expense-editor';
+    const defs = [
+      ['name', 'البند', 'text', 'wide'],
+      ['stage', 'المرحلة', 'select', 'wide'],
+      ['quantity', 'الكمية', 'number', ''],
+      ['unit', 'سعر الوحدة', 'number', '']
+    ];
+    const grid = document.createElement('div');
+    grid.className = 'fields';
+    for (const [key, label, type, cls] of defs) {
+      const wrap = document.createElement('div');
+      wrap.className = 'field ' + cls;
+      const id = `expense-${item.id}-${key}`;
+      const lab = document.createElement('label');
+      lab.htmlFor = id; lab.textContent = label;
+      let ctl;
+      if (type === 'select') {
+        ctl = document.createElement('select');
+        stages.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = stageNames[s]; ctl.appendChild(o); });
+      } else {
+        ctl = document.createElement('input');
+        ctl.type = type;
+        if (type === 'number') { ctl.min = '0'; ctl.step = '0.01'; ctl.inputMode = 'decimal'; }
+      }
+      ctl.id = id;
+      ctl.value = item[key];
+      ctl.addEventListener(type === 'select' ? 'change' : 'input', () => {
+        item[key] = type === 'number' ? safe(ctl.value) : ctl.value;
+        render();
+      });
+      wrap.append(lab, ctl);
+      grid.appendChild(wrap);
+    }
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'btn btn-danger'; del.textContent = 'حذف البند';
+    del.addEventListener('click', () => {
+      expenses = expenses.filter(e => e.id !== item.id);
+      card.remove();
+      render();
+    });
+    card.append(grid, del);
+    el('expense-editors').appendChild(card);
+    return card;
+  }
+
+  function cell(text) { const td = document.createElement('td'); td.textContent = text; return td; }
+
+  function summaryText(totals, overall) {
+    const lines = [
+      `تقرير مصاريف الشحنة ${el('shipment-code').value.trim()}`,
+      `المورد: ${el('supplier').value.trim() || '—'}`,
+      ...stages.map(s => `${stageNames[s]}: ${money(totals[s])}`),
+      `الإجمالي: ${money(overall)}`
+    ];
+    const units = safe(el('units').value);
+    if (units > 0) lines.push(`تكلفة الوحدة بعد المصاريف: ${money(overall / units)}`);
+    return lines.join('\n');
+  }
+
+  function render() {
+    const bind = { 'preview-code': 'shipment-code', 'preview-supplier': 'supplier', 'preview-goods': 'goods', 'preview-origin': 'origin', 'preview-notes': 'notes' };
+    for (const [out, inp] of Object.entries(bind)) el(out).textContent = el(inp).value.trim() || '—';
+    const d = el('purchase-date').value;
+    el('preview-date').textContent = d ? new Intl.DateTimeFormat('ar-EG', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`)) : '—';
+    el('notes-block').hidden = !el('notes').value.trim();
+
+    const totals = Object.fromEntries(stages.map(s => [s, 0]));
+    for (const s of stages) el(`${s}-rows`).replaceChildren();
+    for (const item of expenses) {
+      const amount = safe(item.quantity) * safe(item.unit);
+      totals[item.stage] += amount;
+      const tr = document.createElement('tr');
+      tr.append(cell(item.name.trim() || '—'), cell(qtyFmt.format(item.quantity)), cell(money(item.unit)), cell(money(amount)));
+      el(`${item.stage}-rows`).appendChild(tr);
+    }
+    for (const s of stages) {
+      el(`${s}-total`).textContent = money(totals[s]);
+      el(`${s}-stage-total`).textContent = money(totals[s]);
+      const body = el(`${s}-rows`);
+      if (!body.children.length) {
+        const tr = document.createElement('tr'); tr.className = 'empty-row';
+        const td = cell('لا توجد مصروفات في هذه المرحلة'); td.colSpan = 4;
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    }
+    const overall = stages.reduce((a, s) => a + totals[s], 0);
+    el('overall-total').textContent = money(overall);
+
+    // landed cost per unit
+    const units = safe(el('units').value);
+    const extra = overall - totals.purchase;
+    const dash = '—';
+    el('unit-goods').textContent = units > 0 ? money(totals.purchase / units) : dash;
+    el('unit-extra').textContent = units > 0 ? money(extra / units) : dash;
+    el('unit-landed').textContent = units > 0 ? money(overall / units) : dash;
+    el('extra-pct').textContent = totals.purchase > 0 ? `${pctFmt.format(extra / totals.purchase * 100)}٪` : dash;
+
+    // share bar
+    const bar = el('share-bar'), legend = el('share-legend');
+    bar.replaceChildren(); legend.replaceChildren();
+    for (const s of stages) {
+      const share = overall > 0 ? totals[s] / overall * 100 : 0;
+      if (share > 0) { const seg = document.createElement('i'); seg.style.flex = `${share} 1 0`; seg.style.background = stageColors[s]; bar.appendChild(seg); }
+      const li = document.createElement('li');
+      const sw = document.createElement('i'); sw.style.background = stageColors[s];
+      const name = document.createElement('span'); name.textContent = stageNames[s];
+      const pct = document.createElement('b'); pct.textContent = `${pctFmt.format(share)}٪`;
+      li.append(sw, name, pct); legend.appendChild(li);
+    }
+    save();
+  }
+
+  load();
+  fieldIds.forEach(id => { el(id).addEventListener('input', render); el(id).addEventListener('change', render); });
+  el('add-expense').addEventListener('click', () => {
+    const item = { id: nextId++, name: '', stage: 'purchase', quantity: 1, unit: 0 };
+    expenses.push(item);
+    makeEditor(item).querySelector('input').focus();
+    render();
+  });
+  el('copy-button').addEventListener('click', async () => {
+    const totals = Object.fromEntries(stages.map(s => [s, expenses.filter(e => e.stage === s).reduce((a, e) => a + safe(e.quantity) * safe(e.unit), 0)]));
+    const text = summaryText(totals, stages.reduce((a, s) => a + totals[s], 0));
+    const btn = el('copy-button'), fb = el('copy-fallback');
+    try {
+      await navigator.clipboard.writeText(text);
+      fb.hidden = true; btn.textContent = 'تم النسخ';
+    } catch (e) {
+      fb.value = text; fb.hidden = false; fb.select(); btn.textContent = 'انسخ النص أدناه';
+    }
+    setTimeout(() => { btn.textContent = 'نسخ الملخص'; }, 2200);
+  });
+  expenses.forEach(makeEditor);
+  render();
+</script>
+
+<details id="diag" hidden dir="rtl" lang="ar">
+  <summary>وضع التشخيص (يظهر فقط داخل Manager)</summary>
+  <p>يعرض هذا الصندوق الرسائل التي يرسلها Manager لهذه الإضافة. أرسل لي محتواه كما هو. يُخفى تلقائيًا أي رمز وصول (token).</p>
+  <pre id="diag-log">بانتظار رسائل من Manager...</pre>
+</details>
+<script>
+  (function () {
+    if (window.parent === window) return;            // not embedded: stay hidden
+    const box = document.getElementById('diag'), log = document.getElementById('diag-log');
+    box.hidden = false; box.open = true;
+    let first = true, count = 0;
+    const redact = (v, k) => {
+      if (/token|secret|password|authorization/i.test(k || '') && typeof v === 'string') return '***مخفي*** (' + v.length + ' حرفًا)';
+      if (Array.isArray(v)) return v.slice(0, 5).map(x => redact(x, k));
+      if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([a, b]) => [a, redact(b, a)]));
+      if (typeof v === 'string' && v.length > 300) return v.slice(0, 300) + '…';
+      return v;
+    };
+    const add = (label, data) => {
+      if (first) { log.textContent = ''; first = false; }
+      if (++count > 40) return;
+      let t; try { t = JSON.stringify(redact(data), null, 2); } catch (e) { t = String(data); }
+      log.textContent += '[' + label + ']\n' + t + '\n\n';
+    };
+    window.addEventListener('message', e => add('رسالة من Manager', e.data));
+    try { window.parent.postMessage({ type: 'page-request' }, '*'); add('أُرسل', { type: 'page-request' }); } catch (e) { add('تعذّر الإرسال', String(e)); }
+  })();
+</script>
+</body>
+</html>
